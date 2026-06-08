@@ -277,6 +277,26 @@
       gap: 12px;
     }
 
+    .admin-form.locked {
+      display: none;
+    }
+
+    .login-form {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 14px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .58);
+    }
+
+    .login-form.hidden {
+      display: none;
+    }
+
     .field {
       display: grid;
       gap: 7px;
@@ -332,6 +352,36 @@
       min-height: 22px;
       color: var(--green);
       font-weight: 800;
+    }
+
+    .admin-message.error {
+      color: var(--red);
+    }
+
+    .connection-status {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      min-height: 32px;
+      border: 1px solid var(--orange);
+      border-radius: 999px;
+      padding: 0 10px;
+      color: var(--orange);
+      background: var(--orange-soft);
+      font-size: .82rem;
+      font-weight: 900;
+    }
+
+    .connection-status.connected {
+      border-color: var(--green);
+      color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .connection-status.unlocked {
+      border-color: var(--green);
+      color: var(--green);
+      background: var(--green-soft);
     }
 
     .search {
@@ -476,6 +526,7 @@
       .topbar,
       .hero,
       .toolbar,
+      .login-form,
       .admin-form {
         grid-template-columns: 1fr;
       }
@@ -607,10 +658,18 @@
       <div class="admin-head">
         <div>
           <h3>Admin paneli</h3>
-          <p>Yeni ilişki durumu ekle; kayıt listeye anında düşer ve bu tarayıcıda saklanır.</p>
+          <p>Yeni ilişki durumu eklemek için admin şifresi gerekir.</p>
         </div>
+        <span id="connectionStatus" class="connection-status">Ortak veritabanı bekleniyor</span>
       </div>
-      <form id="adminForm" class="admin-form">
+      <form id="loginForm" class="login-form">
+        <div class="field">
+          <label for="adminPassword">Admin şifresi</label>
+          <input id="adminPassword" name="password" type="password" placeholder="Şifreyi gir" autocomplete="current-password" required>
+        </div>
+        <button type="submit">Giriş yap</button>
+      </form>
+      <form id="adminForm" class="admin-form locked">
         <div class="field">
           <label for="adminNames">Çift</label>
           <input id="adminNames" name="names" type="text" placeholder="Örn. Ayşe & Mehmet" required>
@@ -731,22 +790,120 @@
       gorusmeler: "Görüşmeler devam ediyor"
     };
 
-    const storageKey = "tekirdagRelationshipList";
-    const savedRelationships = JSON.parse(localStorage.getItem(storageKey) || "null");
-    const relationships = Array.isArray(savedRelationships) ? savedRelationships : defaultRelationships;
+    const supabaseConfig = {
+      url: "https://cjhhepnmokibpzdgyytl.supabase.co",
+      anonKey: "sb_publishable_1ckjm0li9LPlfkL9j-HNAw_Eg8ey7-Q",
+      table: "relationships"
+    };
+
+    const adminPassword = "tekirdag2026";
+
+    const isSupabaseConfigured =
+      supabaseConfig.url.startsWith("https://") &&
+      supabaseConfig.anonKey.length > 20 &&
+      !supabaseConfig.url.includes("BURAYA") &&
+      !supabaseConfig.anonKey.includes("BURAYA");
+
+    let relationships = [...defaultRelationships];
 
     const rows = document.querySelector("#relationshipRows");
     const emptyState = document.querySelector("#emptyState");
     const searchInput = document.querySelector("#searchInput");
+    const loginForm = document.querySelector("#loginForm");
     const adminForm = document.querySelector("#adminForm");
+    const adminPasswordInput = document.querySelector("#adminPassword");
     const adminMessage = document.querySelector("#adminMessage");
+    const connectionStatus = document.querySelector("#connectionStatus");
     const filterButtons = document.querySelectorAll("[data-filter]");
     const schoolButtons = document.querySelectorAll("[data-school]");
     let activeFilter = "hepsi";
     let activeSchool = "hepsi";
+    let isAdminUnlocked = sessionStorage.getItem("tekirdagAdminUnlocked") === "true";
 
-    function saveRelationships() {
-      localStorage.setItem(storageKey, JSON.stringify(relationships));
+    function setAdminMessage(message, isError = false) {
+      adminMessage.textContent = message;
+      adminMessage.classList.toggle("error", isError);
+      if (message) {
+        window.setTimeout(() => {
+          adminMessage.textContent = "";
+          adminMessage.classList.remove("error");
+        }, 3200);
+      }
+    }
+
+    function updateAdminLock() {
+      adminForm.classList.toggle("locked", !isAdminUnlocked);
+      loginForm.classList.toggle("hidden", isAdminUnlocked);
+      if (isAdminUnlocked) {
+        connectionStatus.textContent = isSupabaseConfigured ? "Admin açık, veritabanı bağlı" : "Admin açık, veritabanı bekleniyor";
+        connectionStatus.classList.add("unlocked");
+      }
+    }
+
+    function mapDatabaseRow(row) {
+      return {
+        names: row.names,
+        school: schoolNames[row.school_key] || row.school || "",
+        schoolKey: row.school_key,
+        classroom: row.classroom,
+        status: row.status,
+        statusText: statusNames[row.status] || row.status,
+        note: row.note || ""
+      };
+    }
+
+    function toDatabaseRow(item) {
+      return {
+        names: item.names,
+        school_key: item.schoolKey,
+        classroom: item.classroom,
+        status: item.status,
+        note: item.note
+      };
+    }
+
+    async function supabaseRequest(path, options = {}) {
+      const response = await fetch(`${supabaseConfig.url}/rest/v1/${path}`, {
+        ...options,
+        headers: {
+          apikey: supabaseConfig.anonKey,
+          Authorization: `Bearer ${supabaseConfig.anonKey}`,
+          "Content-Type": "application/json",
+          ...options.headers
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error("Veritabanı bağlantısı başarısız oldu.");
+      }
+
+      if (response.status === 204) return null;
+      return response.json();
+    }
+
+    async function loadSharedRelationships() {
+      if (!isSupabaseConfigured) {
+        connectionStatus.textContent = "Ortak veritabanı bekleniyor";
+        relationships = [...defaultRelationships];
+        updateCounts();
+        renderRows();
+        return;
+      }
+
+      try {
+        const data = await supabaseRequest(`${supabaseConfig.table}?select=*&order=created_at.desc`);
+        relationships = data.map(mapDatabaseRow);
+        connectionStatus.textContent = "Ortak veritabanı bağlı";
+        connectionStatus.classList.add("connected");
+        updateCounts();
+        renderRows();
+      } catch (error) {
+        connectionStatus.textContent = "Veritabanı bağlantı hatası";
+        connectionStatus.classList.remove("connected");
+        setAdminMessage(error.message, true);
+        updateCounts();
+        renderRows();
+      }
     }
 
     function updateCounts() {
@@ -796,13 +953,30 @@
 
     searchInput.addEventListener("input", renderRows);
 
-    adminForm.addEventListener("submit", event => {
+    loginForm.addEventListener("submit", event => {
       event.preventDefault();
+      if (adminPasswordInput.value === adminPassword) {
+        isAdminUnlocked = true;
+        sessionStorage.setItem("tekirdagAdminUnlocked", "true");
+        loginForm.reset();
+        updateAdminLock();
+        setAdminMessage("Admin paneli açıldı.");
+      } else {
+        setAdminMessage("Şifre yanlış.", true);
+      }
+    });
+
+    adminForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      if (!isAdminUnlocked) {
+        setAdminMessage("Önce admin şifresiyle giriş yapmalısın.", true);
+        return;
+      }
       const formData = new FormData(adminForm);
       const schoolKey = formData.get("schoolKey");
       const status = formData.get("status");
 
-      relationships.unshift({
+      const newRelationship = {
         names: formData.get("names").trim(),
         school: schoolNames[schoolKey],
         schoolKey,
@@ -810,20 +984,33 @@
         status,
         statusText: statusNames[status],
         note: formData.get("note").trim()
-      });
+      };
 
-      saveRelationships();
-      updateCounts();
-      renderRows();
-      adminForm.reset();
-      adminMessage.textContent = "Yeni ilişki durumu eklendi.";
-      window.setTimeout(() => {
-        adminMessage.textContent = "";
-      }, 2400);
+      if (!isSupabaseConfigured) {
+        setAdminMessage("Herkese görünmesi için Supabase bilgilerini dosyaya eklemelisin.", true);
+        return;
+      }
+
+      try {
+        const insertedRows = await supabaseRequest(supabaseConfig.table, {
+          method: "POST",
+          headers: {
+            Prefer: "return=representation"
+          },
+          body: JSON.stringify(toDatabaseRow(newRelationship))
+        });
+        relationships.unshift(mapDatabaseRow(insertedRows[0]));
+        updateCounts();
+        renderRows();
+        adminForm.reset();
+        setAdminMessage("Yeni ilişki durumu herkese açık listeye eklendi.");
+      } catch (error) {
+        setAdminMessage(error.message, true);
+      }
     });
 
-    updateCounts();
-    renderRows();
+    loadSharedRelationships();
+    updateAdminLock();
   </script>
 </body>
 </html>

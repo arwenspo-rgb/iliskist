@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tekirdağ Okul İlişki Listesi</title>
+  <style>
+    :root {
+      --bg: #f6f4ef;
+      --ink: #202124;
+      --muted: #6b665d;
+      --panel: #fffdf8;
+      --line: #ded8ca;
+      --red: #d93434;
+      --red-soft: #ffe6e6;
+      --green: #168447;
+      --green-soft: #e3f7eb;
+      --orange: #d97800;
+      --orange-soft: #fff0d8;
+      --navy: #25364a;
+      --blue: #e2edf8;
+      --shadow: 0 20px 50px rgba(31, 34, 38, .12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(226, 237, 248, .8), transparent 34rem),
+        linear-gradient(135deg, #f7f0df 0%, #f5f7f6 42%, #eaf1ee 100%);
+    }
+
+    .shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 42px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .mark {
+      display: grid;
+      width: 44px;
+      height: 44px;
+      place-items: center;
+      border: 1px solid rgba(37, 54, 74, .16);
+      border-radius: 8px;
+      color: var(--navy);
+      background: rgba(255, 253, 248, .78);
+      box-shadow: 0 10px 24px rgba(37, 54, 74, .12);
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: clamp(1.25rem, 3vw, 2.1rem);
+      line-height: 1.05;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: .95rem;
+    }
+
+    .date-pill {
+      flex: 0 0 auto;
+      border: 1px solid rgba(37, 54, 74, .15);
+      border-radius: 999px;
+      padding: 10px 14px;
+      color: var(--navy);
+      background: rgba(255, 253, 248, .75);
+      font-size: .9rem;
+      font-weight: 700;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr);
+      gap: 20px;
+      align-items: stretch;
+      margin-bottom: 22px;
+    }
+
+    .headline,
+    .side-panel,
+    .toolbar,
+    .admin-panel,
+    .table-wrap {
+      border: 1px solid rgba(37, 54, 74, .12);
+      border-radius: 8px;
+      background: rgba(255, 253, 248, .78);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    .headline {
+      min-height: 270px;
+      padding: clamp(24px, 5vw, 44px);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .headline::after {
+      content: "";
+      position: absolute;
+      inset: auto 28px 26px auto;
+      width: 170px;
+      height: 110px;
+      border: 1px solid rgba(37, 54, 74, .18);
+      border-radius: 8px;
+      background:
+        linear-gradient(90deg, transparent 48%, rgba(37, 54, 74, .12) 49% 51%, transparent 52%),
+        linear-gradient(180deg, rgba(255, 255, 255, .68), rgba(226, 237, 248, .75));
+      transform: rotate(-5deg);
+      opacity: .55;
+    }
+
+    .headline h2 {
+      max-width: 760px;
+      margin: 0;
+      font-size: clamp(2.4rem, 8vw, 5.6rem);
+      line-height: .92;
+      letter-spacing: 0;
+      color: var(--navy);
+      position: relative;
+      z-index: 1;
+    }
+
+    .headline p {
+      max-width: 560px;
+      margin: 20px 0 0;
+      color: var(--muted);
+      font-size: clamp(1rem, 2vw, 1.15rem);
+      line-height: 1.6;
+      position: relative;
+      z-index: 1;
+    }
+
+    .side-panel {
+      padding: 22px;
+      display: grid;
+      gap: 14px;
+      align-content: center;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .stat {
+      min-height: 104px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: rgba(255, 255, 255, .55);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    .stat span {
+      display: block;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: .86rem;
+      font-weight: 700;
+    }
+
+    .stat.together strong { color: var(--green); }
+    .stat.apart strong { color: var(--red); }
+    .stat.talking strong { color: var(--orange); }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 11px;
+      background: rgba(255, 255, 255, .62);
+      color: var(--muted);
+      font-size: .86rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 12px;
+      padding: 14px;
+      margin-bottom: 18px;
+    }
+
+    .school-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 18px;
+      padding: 14px;
+      border: 1px solid rgba(37, 54, 74, .12);
+      border-radius: 8px;
+      background: rgba(255, 253, 248, .78);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    .admin-panel {
+      margin-bottom: 18px;
+      padding: 18px;
+    }
+
+    .admin-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .admin-head h3 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 1.2rem;
+    }
+
+    .admin-head p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .admin-form {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .field.full {
+      grid-column: 1 / -1;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: .78rem;
+      font-weight: 900;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    select,
+    textarea,
+    .admin-form input {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      outline: 0;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+    }
+
+    textarea {
+      min-height: 88px;
+      resize: vertical;
+    }
+
+    .admin-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      grid-column: 1 / -1;
+      flex-wrap: wrap;
+    }
+
+    .admin-actions button {
+      background: var(--navy);
+      border-color: var(--navy);
+      color: #fff;
+    }
+
+    .admin-message {
+      min-height: 22px;
+      color: var(--green);
+      font-weight: 800;
+    }
+
+    .search {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 12px;
+      background: #fff;
+    }
+
+    .search span {
+      color: var(--muted);
+      font-size: 1.1rem;
+    }
+
+    input {
+      width: 100%;
+      min-height: 42px;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+    }
+
+    .filters {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    button {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 14px;
+      color: var(--navy);
+      background: #fff;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform .15s ease, border-color .15s ease, background .15s ease;
+    }
+
+    button:hover,
+    button.active {
+      transform: translateY(-1px);
+      border-color: rgba(37, 54, 74, .35);
+      background: var(--blue);
+    }
+
+    .table-wrap {
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      vertical-align: middle;
+    }
+
+    th {
+      color: var(--muted);
+      background: rgba(255, 255, 255, .55);
+      font-size: .78rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    tbody tr {
+      transition: background .15s ease;
+    }
+
+    tbody tr:hover {
+      background: rgba(226, 237, 248, .38);
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .names {
+      font-weight: 900;
+      color: var(--navy);
+    }
+
+    .classroom {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      border-radius: 999px;
+      padding: 0 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .status.birlikte {
+      color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .status.ayrildi {
+      color: var(--red);
+      background: var(--red-soft);
+    }
+
+    .status.gorusmeler {
+      color: var(--orange);
+      background: var(--orange-soft);
+    }
+
+    .note {
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .empty {
+      display: none;
+      padding: 28px;
+      color: var(--muted);
+      text-align: center;
+      font-weight: 800;
+    }
+
+    @media (max-width: 840px) {
+      .topbar,
+      .hero,
+      .toolbar,
+      .admin-form {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        align-items: flex-start;
+      }
+
+      .date-pill {
+        width: fit-content;
+      }
+
+      .stat-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .filters {
+        justify-content: flex-start;
+      }
+
+      .school-tabs button {
+        flex: 1 1 100%;
+      }
+
+      .admin-head {
+        display: grid;
+      }
+
+      table,
+      thead,
+      tbody,
+      tr,
+      th,
+      td {
+        display: block;
+      }
+
+      thead {
+        display: none;
+      }
+
+      tr {
+        padding: 14px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      td {
+        padding: 8px 0;
+        border: 0;
+      }
+
+      td::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 4px;
+        color: var(--muted);
+        font-size: .72rem;
+        font-weight: 900;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark">♥</div>
+        <div>
+          <h1>Tekirdağ İlişki Listesi</h1>
+          <p>İki okul, ayrı kategoriler, durumlar net.</p>
+        </div>
+      </div>
+      <div class="date-pill">Tekirdağ lise sezonu</div>
+    </header>
+
+    <section class="hero" aria-label="Özet">
+      <div class="headline">
+        <div>
+          <h2>Okuluna göre bak.</h2>
+          <p>Tekirdağ Güzel Sanatlar Lisesi ile Süleymanpaşa Meslek ve Anadolu Lisesi ayrı kategorilerde gösterilir. Birlikte olanlar yeşil, ayrılanlar kırmızı, görüşmeleri devam edenler turuncudur.</p>
+        </div>
+      </div>
+
+      <aside class="side-panel">
+        <div class="stat-grid">
+          <div class="stat together">
+            <strong id="countTogether">0</strong>
+            <span>Birlikte</span>
+          </div>
+          <div class="stat apart">
+            <strong id="countApart">0</strong>
+            <span>Ayrıldı</span>
+          </div>
+          <div class="stat talking">
+            <strong id="countTalking">0</strong>
+            <span>Görüşmeler</span>
+          </div>
+        </div>
+        <div class="legend" aria-label="Durum renkleri">
+          <span class="tag"><i class="dot" style="background: var(--green)"></i>Birlikte</span>
+          <span class="tag"><i class="dot" style="background: var(--red)"></i>Ayrıldı</span>
+          <span class="tag"><i class="dot" style="background: var(--orange)"></i>Görüşmeler devam ediyor</span>
+        </div>
+      </aside>
+    </section>
+
+    <section class="school-tabs" aria-label="Okula göre kategori">
+      <button class="active" type="button" data-school="hepsi">Tüm okullar</button>
+      <button type="button" data-school="tgsl">Tekirdağ Güzel Sanatlar Lisesi</button>
+      <button type="button" data-school="sma">Süleymanpaşa Meslek ve Anadolu Lisesi</button>
+    </section>
+
+    <section class="toolbar" aria-label="Liste araçları">
+      <label class="search">
+        <span>⌕</span>
+        <input id="searchInput" type="search" placeholder="İsim, okul, sınıf veya not ara">
+      </label>
+      <div class="filters" aria-label="Duruma göre filtrele">
+        <button class="active" type="button" data-filter="hepsi">Hepsi</button>
+        <button type="button" data-filter="birlikte">Birlikte</button>
+        <button type="button" data-filter="ayrildi">Ayrıldı</button>
+        <button type="button" data-filter="gorusmeler">Görüşmeler</button>
+      </div>
+    </section>
+
+    <section class="admin-panel" aria-label="Admin paneli">
+      <div class="admin-head">
+        <div>
+          <h3>Admin paneli</h3>
+          <p>Yeni ilişki durumu ekle; kayıt listeye anında düşer ve bu tarayıcıda saklanır.</p>
+        </div>
+      </div>
+      <form id="adminForm" class="admin-form">
+        <div class="field">
+          <label for="adminNames">Çift</label>
+          <input id="adminNames" name="names" type="text" placeholder="Örn. Ayşe & Mehmet" required>
+        </div>
+        <div class="field">
+          <label for="adminSchool">Okul</label>
+          <select id="adminSchool" name="schoolKey" required>
+            <option value="tgsl">Tekirdağ Güzel Sanatlar Lisesi</option>
+            <option value="sma">Süleymanpaşa Meslek ve Anadolu Lisesi</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="adminClassroom">Sınıf</label>
+          <input id="adminClassroom" name="classroom" type="text" placeholder="Örn. 11-B" required>
+        </div>
+        <div class="field">
+          <label for="adminStatus">Durum</label>
+          <select id="adminStatus" name="status" required>
+            <option value="birlikte">Birlikte</option>
+            <option value="ayrildi">Ayrıldı</option>
+            <option value="gorusmeler">Görüşmeler devam ediyor</option>
+          </select>
+        </div>
+        <div class="field full">
+          <label for="adminNote">Not</label>
+          <textarea id="adminNote" name="note" placeholder="Kısa bir not yaz" required></textarea>
+        </div>
+        <div class="admin-actions">
+          <button type="submit">Yeni durumu ekle</button>
+          <span id="adminMessage" class="admin-message" aria-live="polite"></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="table-wrap" aria-label="İlişki listesi">
+      <table>
+        <thead>
+          <tr>
+            <th>Çift</th>
+            <th>Okul</th>
+            <th>Sınıf</th>
+            <th>Durum</th>
+            <th>Not</th>
+          </tr>
+        </thead>
+        <tbody id="relationshipRows"></tbody>
+      </table>
+      <div id="emptyState" class="empty">Bu filtreye uygun kayıt bulunamadı.</div>
+    </section>
+  </main>
+
+  <script>
+    const defaultRelationships = [
+      {
+        names: "Ada & Deniz",
+        school: "Tekirdağ Güzel Sanatlar Lisesi",
+        schoolKey: "tgsl",
+        classroom: "11-B",
+        status: "birlikte",
+        statusText: "Birlikte",
+        note: "Resim atölyesi çıkışında beraber takılıyorlar."
+      },
+      {
+        names: "Eylül & Mert",
+        school: "Tekirdağ Güzel Sanatlar Lisesi",
+        schoolKey: "tgsl",
+        classroom: "10-A",
+        status: "ayrildi",
+        statusText: "Ayrıldı",
+        note: "Arkadaş kalmaya karar verdiler."
+      },
+      {
+        names: "Zeynep & Arda",
+        school: "Tekirdağ Güzel Sanatlar Lisesi",
+        schoolKey: "tgsl",
+        classroom: "12-C",
+        status: "gorusmeler",
+        statusText: "Görüşmeler devam ediyor",
+        note: "Müzik koridorunda sohbetler sıklaştı."
+      },
+      {
+        names: "Selin & Kerem",
+        school: "Süleymanpaşa Meslek ve Anadolu Lisesi",
+        schoolKey: "sma",
+        classroom: "9-D",
+        status: "birlikte",
+        statusText: "Birlikte",
+        note: "Okul çıkışı beraber dönüyorlar."
+      },
+      {
+        names: "Elif & Can",
+        school: "Süleymanpaşa Meslek ve Anadolu Lisesi",
+        schoolKey: "sma",
+        classroom: "11-A",
+        status: "ayrildi",
+        statusText: "Ayrıldı",
+        note: "Defterler ayrıldı, grup sohbeti kaldı."
+      },
+      {
+        names: "Mina & Bora",
+        school: "Süleymanpaşa Meslek ve Anadolu Lisesi",
+        schoolKey: "sma",
+        classroom: "10-C",
+        status: "gorusmeler",
+        statusText: "Görüşmeler devam ediyor",
+        note: "Tenefüslerde konuşmalar sıklaştı."
+      }
+    ];
+
+    const schoolNames = {
+      tgsl: "Tekirdağ Güzel Sanatlar Lisesi",
+      sma: "Süleymanpaşa Meslek ve Anadolu Lisesi"
+    };
+
+    const statusNames = {
+      birlikte: "Birlikte",
+      ayrildi: "Ayrıldı",
+      gorusmeler: "Görüşmeler devam ediyor"
+    };
+
+    const storageKey = "tekirdagRelationshipList";
+    const savedRelationships = JSON.parse(localStorage.getItem(storageKey) || "null");
+    const relationships = Array.isArray(savedRelationships) ? savedRelationships : defaultRelationships;
+
+    const rows = document.querySelector("#relationshipRows");
+    const emptyState = document.querySelector("#emptyState");
+    const searchInput = document.querySelector("#searchInput");
+    const adminForm = document.querySelector("#adminForm");
+    const adminMessage = document.querySelector("#adminMessage");
+    const filterButtons = document.querySelectorAll("[data-filter]");
+    const schoolButtons = document.querySelectorAll("[data-school]");
+    let activeFilter = "hepsi";
+    let activeSchool = "hepsi";
+
+    function saveRelationships() {
+      localStorage.setItem(storageKey, JSON.stringify(relationships));
+    }
+
+    function updateCounts() {
+      document.querySelector("#countTogether").textContent = relationships.filter(item => item.status === "birlikte").length;
+      document.querySelector("#countApart").textContent = relationships.filter(item => item.status === "ayrildi").length;
+      document.querySelector("#countTalking").textContent = relationships.filter(item => item.status === "gorusmeler").length;
+    }
+
+    function renderRows() {
+      const query = searchInput.value.trim().toLocaleLowerCase("tr-TR");
+      const filtered = relationships.filter(item => {
+        const haystack = `${item.names} ${item.school} ${item.classroom} ${item.statusText} ${item.note}`.toLocaleLowerCase("tr-TR");
+        const matchesSearch = haystack.includes(query);
+        const matchesFilter = activeFilter === "hepsi" || item.status === activeFilter;
+        const matchesSchool = activeSchool === "hepsi" || item.schoolKey === activeSchool;
+        return matchesSearch && matchesFilter && matchesSchool;
+      });
+
+      rows.innerHTML = filtered.map(item => `
+        <tr>
+          <td data-label="Çift"><span class="names">${item.names}</span></td>
+          <td data-label="Okul"><span class="classroom">${item.school}</span></td>
+          <td data-label="Sınıf"><span class="classroom">${item.classroom}</span></td>
+          <td data-label="Durum"><span class="status ${item.status}">${item.statusText}</span></td>
+          <td data-label="Not"><span class="note">${item.note}</span></td>
+        </tr>
+      `).join("");
+
+      emptyState.style.display = filtered.length ? "none" : "block";
+    }
+
+    filterButtons.forEach(button => {
+      button.addEventListener("click", () => {
+        activeFilter = button.dataset.filter;
+        filterButtons.forEach(item => item.classList.toggle("active", item === button));
+        renderRows();
+      });
+    });
+
+    schoolButtons.forEach(button => {
+      button.addEventListener("click", () => {
+        activeSchool = button.dataset.school;
+        schoolButtons.forEach(item => item.classList.toggle("active", item === button));
+        renderRows();
+      });
+    });
+
+    searchInput.addEventListener("input", renderRows);
+
+    adminForm.addEventListener("submit", event => {
+      event.preventDefault();
+      const formData = new FormData(adminForm);
+      const schoolKey = formData.get("schoolKey");
+      const status = formData.get("status");
+
+      relationships.unshift({
+        names: formData.get("names").trim(),
+        school: schoolNames[schoolKey],
+        schoolKey,
+        classroom: formData.get("classroom").trim(),
+        status,
+        statusText: statusNames[status],
+        note: formData.get("note").trim()
+      });
+
+      saveRelationships();
+      updateCounts();
+      renderRows();
+      adminForm.reset();
+      adminMessage.textContent = "Yeni ilişki durumu eklendi.";
+      window.setTimeout(() => {
+        adminMessage.textContent = "";
+      }, 2400);
+    });
+
+    updateCounts();
+    renderRows();
+  </script>
+</body>
+</html>

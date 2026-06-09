@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tekirdağ Okul İlişki Listesi</title>
+  <title>Kimin Eli Kimin </title>
   <style>
     :root {
       --bg: #f6f4ef;
@@ -533,10 +533,23 @@
       display: table-cell;
     }
 
-    .edit-row {
+    .row-action-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .edit-row,
+    .delete-row {
       min-height: 34px;
       padding: 0 11px;
       font-size: .86rem;
+    }
+
+    .delete-row {
+      border-color: var(--red);
+      color: var(--red);
+      background: var(--red-soft);
     }
 
     .empty {
@@ -751,63 +764,6 @@
   </main>
 
   <script>
-    const defaultRelationships = [
-      {
-        names: "Ada & Deniz",
-        school: "Tekirdağ Güzel Sanatlar Lisesi",
-        schoolKey: "tgsl",
-        classroom: "11-B",
-        status: "birlikte",
-        statusText: "Birlikte",
-        note: "Resim atölyesi çıkışında beraber takılıyorlar."
-      },
-      {
-        names: "Eylül & Mert",
-        school: "Tekirdağ Güzel Sanatlar Lisesi",
-        schoolKey: "tgsl",
-        classroom: "10-A",
-        status: "ayrildi",
-        statusText: "Ayrıldı",
-        note: "Arkadaş kalmaya karar verdiler."
-      },
-      {
-        names: "Zeynep & Arda",
-        school: "Tekirdağ Güzel Sanatlar Lisesi",
-        schoolKey: "tgsl",
-        classroom: "12-C",
-        status: "gorusmeler",
-        statusText: "Görüşmeler devam ediyor",
-        note: "Müzik koridorunda sohbetler sıklaştı."
-      },
-      {
-        names: "Selin & Kerem",
-        school: "Süleymanpaşa Meslek ve Anadolu Lisesi",
-        schoolKey: "sma",
-        classroom: "9-D",
-        status: "birlikte",
-        statusText: "Birlikte",
-        note: "Okul çıkışı beraber dönüyorlar."
-      },
-      {
-        names: "Elif & Can",
-        school: "Süleymanpaşa Meslek ve Anadolu Lisesi",
-        schoolKey: "sma",
-        classroom: "11-A",
-        status: "ayrildi",
-        statusText: "Ayrıldı",
-        note: "Defterler ayrıldı, grup sohbeti kaldı."
-      },
-      {
-        names: "Mina & Bora",
-        school: "Süleymanpaşa Meslek ve Anadolu Lisesi",
-        schoolKey: "sma",
-        classroom: "10-C",
-        status: "gorusmeler",
-        statusText: "Görüşmeler devam ediyor",
-        note: "Tenefüslerde konuşmalar sıklaştı."
-      }
-    ];
-
     const schoolNames = {
       tgsl: "Tekirdağ Güzel Sanatlar Lisesi",
       sma: "Süleymanpaşa Meslek ve Anadolu Lisesi"
@@ -833,7 +789,7 @@
       !supabaseConfig.url.includes("BURAYA") &&
       !supabaseConfig.anonKey.includes("BURAYA");
 
-    let relationships = [...defaultRelationships];
+    let relationships = [];
 
     const rows = document.querySelector("#relationshipRows");
     const emptyState = document.querySelector("#emptyState");
@@ -905,6 +861,32 @@
       setAdminMessage("Kayıt düzenleme modunda.");
     }
 
+    async function deleteRelationship(id) {
+      const relationship = relationships.find(item => String(item.id) === String(id));
+      if (!relationship) {
+        setAdminMessage("Silinecek kayıt bulunamadı.", true);
+        return;
+      }
+
+      const confirmed = window.confirm(`${relationship.names} kaydını silmek istiyor musun?`);
+      if (!confirmed) return;
+
+      try {
+        await supabaseRequest(`${supabaseConfig.table}?id=eq.${id}`, {
+          method: "DELETE"
+        });
+        relationships = relationships.filter(item => String(item.id) !== String(id));
+        if (String(editingRelationshipId) === String(id)) {
+          resetAdminForm();
+        }
+        updateCounts();
+        renderRows();
+        setAdminMessage("İlişki durumu silindi.");
+      } catch (error) {
+        setAdminMessage(error.message, true);
+      }
+    }
+
     function mapDatabaseRow(row) {
       return {
         id: row.id,
@@ -950,7 +932,7 @@
     async function loadSharedRelationships() {
       if (!isSupabaseConfigured) {
         connectionStatus.textContent = "Ortak veritabanı bekleniyor";
-        relationships = [...defaultRelationships];
+        relationships = [];
         updateCounts();
         renderRows();
         return;
@@ -996,7 +978,12 @@
           <td data-label="Durum"><span class="status ${item.status}">${item.statusText}</span></td>
           <td data-label="Not"><span class="note">${item.note}</span></td>
           <td data-label="İşlem" class="row-actions ${isAdminUnlocked ? "visible" : ""}">
-            ${item.id ? `<button class="edit-row" type="button" data-edit-id="${item.id}">Düzenle</button>` : ""}
+            ${item.id ? `
+              <div class="row-action-buttons">
+                <button class="edit-row" type="button" data-edit-id="${item.id}">Düzenle</button>
+                <button class="delete-row" type="button" data-delete-id="${item.id}">Sil</button>
+              </div>
+            ` : ""}
           </td>
         </tr>
       `).join("");
@@ -1024,8 +1011,14 @@
 
     rows.addEventListener("click", event => {
       const editButton = event.target.closest("[data-edit-id]");
-      if (!editButton || !isAdminUnlocked) return;
-      startEditingRelationship(editButton.dataset.editId);
+      const deleteButton = event.target.closest("[data-delete-id]");
+      if (!isAdminUnlocked) return;
+      if (editButton) {
+        startEditingRelationship(editButton.dataset.editId);
+      }
+      if (deleteButton) {
+        deleteRelationship(deleteButton.dataset.deleteId);
+      }
     });
 
     cancelEditButton.addEventListener("click", () => {

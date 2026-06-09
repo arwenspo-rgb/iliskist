@@ -348,6 +348,17 @@
       color: #fff;
     }
 
+    .admin-actions .secondary {
+      display: none;
+      background: #fff;
+      border-color: var(--line);
+      color: var(--navy);
+    }
+
+    .admin-actions .secondary.visible {
+      display: inline-flex;
+    }
+
     .admin-message {
       min-height: 22px;
       color: var(--green);
@@ -512,6 +523,20 @@
     .note {
       color: var(--muted);
       line-height: 1.45;
+    }
+
+    .row-actions {
+      display: none;
+    }
+
+    .row-actions.visible {
+      display: table-cell;
+    }
+
+    .edit-row {
+      min-height: 34px;
+      padding: 0 11px;
+      font-size: .86rem;
     }
 
     .empty {
@@ -698,7 +723,10 @@
           <textarea id="adminNote" name="note" placeholder="Kısa bir not yaz" required></textarea>
         </div>
         <div class="admin-actions">
-          <button type="submit">Yeni durumu ekle</button>
+          <div>
+            <button id="adminSubmitButton" type="submit">Yeni durumu ekle</button>
+            <button id="cancelEditButton" class="secondary" type="button">İptal</button>
+          </div>
           <span id="adminMessage" class="admin-message" aria-live="polite"></span>
         </div>
       </form>
@@ -713,6 +741,7 @@
             <th>Sınıf</th>
             <th>Durum</th>
             <th>Not</th>
+            <th class="row-actions" id="actionsHeader">İşlem</th>
           </tr>
         </thead>
         <tbody id="relationshipRows"></tbody>
@@ -813,12 +842,16 @@
     const adminForm = document.querySelector("#adminForm");
     const adminPasswordInput = document.querySelector("#adminPassword");
     const adminMessage = document.querySelector("#adminMessage");
+    const adminSubmitButton = document.querySelector("#adminSubmitButton");
+    const cancelEditButton = document.querySelector("#cancelEditButton");
+    const actionsHeader = document.querySelector("#actionsHeader");
     const connectionStatus = document.querySelector("#connectionStatus");
     const filterButtons = document.querySelectorAll("[data-filter]");
     const schoolButtons = document.querySelectorAll("[data-school]");
     let activeFilter = "hepsi";
     let activeSchool = "hepsi";
     let isAdminUnlocked = sessionStorage.getItem("tekirdagAdminUnlocked") === "true";
+    let editingRelationshipId = null;
 
     function setAdminMessage(message, isError = false) {
       adminMessage.textContent = message;
@@ -834,14 +867,47 @@
     function updateAdminLock() {
       adminForm.classList.toggle("locked", !isAdminUnlocked);
       loginForm.classList.toggle("hidden", isAdminUnlocked);
+      actionsHeader.classList.toggle("visible", isAdminUnlocked);
       if (isAdminUnlocked) {
         connectionStatus.textContent = isSupabaseConfigured ? "Admin açık, veritabanı bağlı" : "Admin açık, veritabanı bekleniyor";
         connectionStatus.classList.add("unlocked");
       }
+      renderRows();
+    }
+
+    function setFormMode(mode) {
+      const isEditMode = mode === "edit";
+      adminSubmitButton.textContent = isEditMode ? "Değişiklikleri kaydet" : "Yeni durumu ekle";
+      cancelEditButton.classList.toggle("visible", isEditMode);
+    }
+
+    function resetAdminForm() {
+      editingRelationshipId = null;
+      adminForm.reset();
+      setFormMode("add");
+    }
+
+    function startEditingRelationship(id) {
+      const relationship = relationships.find(item => String(item.id) === String(id));
+      if (!relationship) {
+        setAdminMessage("Düzenlenecek kayıt bulunamadı.", true);
+        return;
+      }
+
+      editingRelationshipId = relationship.id;
+      adminForm.elements.names.value = relationship.names;
+      adminForm.elements.schoolKey.value = relationship.schoolKey;
+      adminForm.elements.classroom.value = relationship.classroom;
+      adminForm.elements.status.value = relationship.status;
+      adminForm.elements.note.value = relationship.note;
+      setFormMode("edit");
+      adminForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      setAdminMessage("Kayıt düzenleme modunda.");
     }
 
     function mapDatabaseRow(row) {
       return {
+        id: row.id,
         names: row.names,
         school: schoolNames[row.school_key] || row.school || "",
         schoolKey: row.school_key,
@@ -929,6 +995,9 @@
           <td data-label="Sınıf"><span class="classroom">${item.classroom}</span></td>
           <td data-label="Durum"><span class="status ${item.status}">${item.statusText}</span></td>
           <td data-label="Not"><span class="note">${item.note}</span></td>
+          <td data-label="İşlem" class="row-actions ${isAdminUnlocked ? "visible" : ""}">
+            ${item.id ? `<button class="edit-row" type="button" data-edit-id="${item.id}">Düzenle</button>` : ""}
+          </td>
         </tr>
       `).join("");
 
@@ -952,6 +1021,17 @@
     });
 
     searchInput.addEventListener("input", renderRows);
+
+    rows.addEventListener("click", event => {
+      const editButton = event.target.closest("[data-edit-id]");
+      if (!editButton || !isAdminUnlocked) return;
+      startEditingRelationship(editButton.dataset.editId);
+    });
+
+    cancelEditButton.addEventListener("click", () => {
+      resetAdminForm();
+      setAdminMessage("Düzenleme iptal edildi.");
+    });
 
     loginForm.addEventListener("submit", event => {
       event.preventDefault();
@@ -992,18 +1072,31 @@
       }
 
       try {
-        const insertedRows = await supabaseRequest(supabaseConfig.table, {
-          method: "POST",
-          headers: {
-            Prefer: "return=representation"
-          },
-          body: JSON.stringify(toDatabaseRow(newRelationship))
-        });
-        relationships.unshift(mapDatabaseRow(insertedRows[0]));
+        if (editingRelationshipId) {
+          const updatedRows = await supabaseRequest(`${supabaseConfig.table}?id=eq.${editingRelationshipId}`, {
+            method: "PATCH",
+            headers: {
+              Prefer: "return=representation"
+            },
+            body: JSON.stringify(toDatabaseRow(newRelationship))
+          });
+          const updatedRelationship = mapDatabaseRow(updatedRows[0]);
+          relationships = relationships.map(item => item.id === updatedRelationship.id ? updatedRelationship : item);
+          setAdminMessage("İlişki durumu güncellendi.");
+        } else {
+          const insertedRows = await supabaseRequest(supabaseConfig.table, {
+            method: "POST",
+            headers: {
+              Prefer: "return=representation"
+            },
+            body: JSON.stringify(toDatabaseRow(newRelationship))
+          });
+          relationships.unshift(mapDatabaseRow(insertedRows[0]));
+          setAdminMessage("Yeni ilişki durumu herkese açık listeye eklendi.");
+        }
         updateCounts();
         renderRows();
-        adminForm.reset();
-        setAdminMessage("Yeni ilişki durumu herkese açık listeye eklendi.");
+        resetAdminForm();
       } catch (error) {
         setAdminMessage(error.message, true);
       }
